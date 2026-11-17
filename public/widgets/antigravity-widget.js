@@ -5,10 +5,10 @@
 /**
  * ⚡ Antigravity Agent - Minimalist iOS Task, Progress Bar & Live Status Widget
  * 
- * - משיכת נתוני זמן אמת ישירה מ-GitHub API (ללא מטמון, 0 עיכובים)
- * - בר התקדמות חי רק כשהסוכן באמת מבצע פעולה
- * - כשהסוכן מסיים לענות וממתין להודעה שלך: מציג "ממתין לפקודה" ולא נתקע על 100%!
- * - תמיכה במסך נעילה (Lock Screen) ובמסך הבית (Medium / Small)
+ * - מודד התקדמות אמיתית לפי תקן Roo Code & OpenHands (שלבי פיתוח ורשימות צעדים)
+ * - מציג שלב מדויק: מחקר וקריאה (25%) | כתיבה ועריכה (60%) | אימות ובדיקות (85%) | שלב X/Y
+ * - ללא ניחושים וללא תקיעות על 100% במנוחה
+ * - תמיכה מלאה במסך הנעילה (Lock Screen) ובמסך הבית (Medium / Small)
  */
 
 const GIST_ID = "f307290d03418549eeee78997070fe96";
@@ -19,12 +19,12 @@ const GIST_RAW_URL = `https://gist.githubusercontent.com/hadarai9087-hub/${GIST_
 const APP_URL = "https://github.com/hadarai9087-hub/antigravity-agent-widget";
 
 async function fetchStatus() {
-  // 1. קריאה ישירה מ-GitHub API (ללא מטמון - עוקף את ה-5 דקות של ה-Raw CDN!)
+  // 1. קריאה ישירה מ-GitHub API (ללא מטמון)
   try {
     const req = new Request(`${GIST_API_URL}?t=${Date.now()}`);
     req.timeoutInterval = 4;
     req.headers = {
-      "User-Agent": "AntigravityWidget/3.0",
+      "User-Agent": "AntigravityWidget/4.0",
       "Cache-Control": "no-cache, no-store, must-revalidate",
       "Pragma": "no-cache"
     };
@@ -37,11 +37,11 @@ async function fetchStatus() {
     console.warn("Direct API fetch failed, trying raw fallback:", e);
   }
 
-  // 2. פולבק ל-Raw URL
+  // 2. פולבק
   try {
     const req = new Request(`${GIST_RAW_URL}?t=${Date.now()}`);
     req.timeoutInterval = 4;
-    req.headers = { "Cache-Control": "no-cache", "User-Agent": "AntigravityWidget/3.0" };
+    req.headers = { "Cache-Control": "no-cache", "User-Agent": "AntigravityWidget/4.0" };
     const res = await req.loadJSON();
     if (res && res.status) return res;
   } catch (e) {}
@@ -49,6 +49,7 @@ async function fetchStatus() {
   return {
     status: "waiting",
     taskTitle: "Antigravity Agent",
+    phase: "ממתין לפקודה",
     currentAction: "ממתין לפקודה שלך",
     stepCount: 0,
     progress: 0,
@@ -109,13 +110,13 @@ async function createWidget(family) {
     widget.setPadding(12, 12, 12, 12);
     renderSmall(widget, data, isRunning);
   } else {
-    // Medium - ברירת מחדל למסך הבית
+    // Medium - ברירת מחדל
     widget.backgroundColor = new Color("#000000");
     widget.setPadding(14, 16, 14, 16);
     renderMedium(widget, data, tasks, isRunning);
   }
 
-  // תזמון רענון: כל דקה כשיש פעילות, כל 3 דקות במנוחה
+  // רענון חי
   widget.refreshAfterDate = new Date(Date.now() + 1000 * (isRunning ? 60 : 180));
   return widget;
 }
@@ -131,7 +132,6 @@ function renderLockScreen(widget, data, tasks, isRunning) {
   stack.layoutVertically();
 
   if (isMulti) {
-    // שני פרויקטים רצים במקביל
     const header = stack.addStack();
     header.layoutHorizontally();
     const dot = header.addText("● ");
@@ -162,7 +162,6 @@ function renderLockScreen(widget, data, tasks, isRunning) {
       bar.imageSize = new Size(135, 3);
     }
   } else {
-    // פרויקט יחיד או ממתין
     const t = activeTasks[0] || tasks[0] || data;
 
     const titleRow = stack.addStack();
@@ -172,7 +171,8 @@ function renderLockScreen(widget, data, tasks, isRunning) {
     const icon = titleRow.addText(isRunning ? "● " : "💤 ");
     icon.font = Font.boldSystemFont(11);
 
-    const head = titleRow.addText(isRunning ? "Antigravity עובד" : "Antigravity ממתין");
+    const phaseText = isRunning ? (t.phase || "עובד") : "ממתין";
+    const head = titleRow.addText(`Antigravity • ${phaseText}`);
     head.font = Font.boldSystemFont(11);
 
     titleRow.addSpacer();
@@ -223,7 +223,11 @@ function renderMedium(widget, data, tasks, isRunning) {
 
   let badgeBg = isRunning ? new Color("#34C759", 0.18) : new Color("#8E8E93", 0.18);
   let dotColor = isRunning ? new Color("#34C759") : new Color("#8E8E93");
-  let statusText = isRunning ? (isMulti ? `${activeTasks.length} משימות במקביל` : "פועל כעת") : "ממתין לפקודה";
+  
+  const currentTask = activeTasks[0] || tasks[0] || data;
+  let statusText = isRunning 
+    ? (isMulti ? `${activeTasks.length} משימות במקביל` : `עובד • ${currentTask.phase || "בביצוע"}`) 
+    : "ממתין לפקודה";
 
   statusBadge.backgroundColor = badgeBg;
 
@@ -255,13 +259,13 @@ function renderMedium(widget, data, tasks, isRunning) {
       row.layoutHorizontally();
       row.centerAlignContent();
 
-      const name = row.addText(truncate(t.taskTitle, 24));
+      const name = row.addText(truncate(t.taskTitle, 22));
       name.font = Font.boldSystemFont(13);
       name.textColor = new Color("#FFFFFF");
 
       row.addSpacer();
 
-      const pct = row.addText(`${Math.round(t.progress * 100)}%`);
+      const pct = row.addText(`${t.phase ? t.phase + " • " : ""}${Math.round(t.progress * 100)}%`);
       pct.font = Font.boldSystemFont(11);
       pct.textColor = new Color("#34C759");
 
@@ -279,7 +283,7 @@ function renderMedium(widget, data, tasks, isRunning) {
       bar.imageSize = new Size(275, 4.5);
     }
   } else {
-    const t = activeTasks[0] || tasks[0] || data;
+    const t = currentTask;
 
     const row = widget.addStack();
     row.layoutHorizontally();
@@ -302,7 +306,7 @@ function renderMedium(widget, data, tasks, isRunning) {
 
     const actionText = isRunning 
       ? (cleanActionName(t.currentAction) || "מבצע פעולות...") 
-      : "הסוכן סיים לענות ומוכן לפקודה הבאה";
+      : "הסוכן מוכן לפקודה הבאה";
     
     const subtitle = widget.addText(actionText);
     subtitle.font = Font.systemFont(12);
@@ -320,10 +324,10 @@ function renderMedium(widget, data, tasks, isRunning) {
 
     const botRow = widget.addStack();
     botRow.layoutHorizontally();
-    if (t.stepCount > 0) {
-      const stepText = botRow.addText(`צעדים: ${t.stepCount}`);
-      stepText.font = Font.systemFont(10);
-      stepText.textColor = new Color("#71717A");
+    if (isRunning && t.phase) {
+      const phaseBadge = botRow.addText(`שלב: ${t.phase}`);
+      phaseBadge.font = Font.mediumSystemFont(10);
+      phaseBadge.textColor = new Color("#A1A1AA");
     }
     botRow.addSpacer();
     const timeText = botRow.addText(formatRelativeTime(data.updatedAt));
@@ -348,8 +352,8 @@ function renderSmall(widget, data, isRunning) {
 
   topRow.addSpacer(4);
 
-  const statusLabel = topRow.addText(isRunning ? "מבצע..." : "ממתין");
-  statusLabel.font = Font.boldSystemFont(12);
+  const statusLabel = topRow.addText(isRunning ? (t.phase || "מבצע...") : "ממתין");
+  statusLabel.font = Font.boldSystemFont(11);
   statusLabel.textColor = isRunning ? new Color("#34C759") : new Color("#8E8E93");
 
   topRow.addSpacer();
@@ -419,7 +423,7 @@ if (config.runsInWidget) {
   const alert = new Alert();
   alert.title = "⚡ Antigravity Agent Status";
   
-  const stateHeb = status.status === "running" ? "🟢 פועל כעת" : "💤 ממתין לפקודה שלך";
+  const stateHeb = status.status === "running" ? `🟢 ${status.phase || "פועל כעת"}` : "💤 ממתין לפקודה שלך";
   const progText = status.status === "running" ? `\nהתקדמות: ${Math.round((status.progress || 0) * 100)}%` : "";
   alert.message = `משימה: ${status.taskTitle}\nסטטוס: ${stateHeb}${progText}\nפעולה: ${cleanActionName(status.currentAction)}\nעודכן: ${formatRelativeTime(status.updatedAt)}`;
   

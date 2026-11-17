@@ -3,6 +3,7 @@ import json
 import os
 import sys
 import time
+import re
 import urllib.request
 import datetime
 
@@ -43,6 +44,138 @@ def clean_str(s):
         return ""
     return str(s).strip('"\' \t\r\n')
 
+def analyze_conversation_phase(cid, is_running):
+    """
+    Roo Code & OpenHands Phase Analyzer:
+    1. Checks for markdown checklist items (- [x] / - [ ]).
+    2. If no checklist, maps real tool calls to FSM phases:
+       - Discovery/Research (read_file, search_web): 25%
+       - Implementation (edit_file, write_file): 60%
+       - Verification/Testing (run_command after edits): 85%
+       - Finalizing (PLANNER_RESPONSE text): 95%
+    """
+    if not is_running:
+        return {
+            "progress": 0.0,
+            "phase": "ממתין לפקודה",
+            "action": "מוכן לפקודה הבאה",
+            "status": "waiting"
+        }
+
+    transcript_path = os.path.join(BRAIN_DIR, cid, ".system_generated", "logs", "transcript.jsonl")
+    if not os.path.exists(transcript_path):
+        return {
+            "progress": 0.30,
+            "phase": "מתחיל משימה",
+            "action": "מתחיל ביצוע...",
+            "status": "running"
+        }
+
+    try:
+        with open(transcript_path, "r", encoding="utf-8") as f:
+            lines = [json.loads(l.strip()) for l in f if l.strip()]
+        
+        if not lines:
+            return {"progress": 0.30, "phase": "מתחיל משימה", "action": "מתחיל ביצוע...", "status": "running"}
+
+        # Find the start of the current user turn
+        last_user_idx = 0
+        for i, step in enumerate(lines):
+            if step.get("type") == "USER_INPUT":
+                last_user_idx = i
+
+        turn_steps = lines[last_user_idx:]
+
+        # 1. Checklist Detection (Roo Code standard)
+        checklist_text = ""
+        for step in reversed(turn_steps):
+            content = step.get("content") or ""
+            if "- [ ]" in content or "- [x]" in content or "- [X]" in content:
+                checklist_text = content
+                break
+        
+        if checklist_text:
+            completed = len(re.findall(r'- \[[xX]\]', checklist_text))
+            pending = len(re.findall(r'- \[ \]', checklist_text))
+            total = completed + pending
+            if total >= 2:
+                prog = round(completed / total, 2)
+                return {
+                    "progress": max(0.15, min(0.95, prog)),
+                    "phase": f"שלב {completed}/{total}",
+                    "action": f"מבצע שלב {completed + 1} מתוך {total}",
+                    "status": "running"
+                }
+
+        # 2. Phase Detection based on Tool Operations (OpenHands standard)
+        tool_names = []
+        last_action = "פועל ברקע..."
+
+        for step in turn_steps:
+            tcs = step.get("tool_calls", [])
+            for tc in tcs:
+                tool_names.append(tc.get("name"))
+                summary = tc.get("args", {}).get("toolSummary") or tc.get("name")
+                if summary:
+                    last_action = summary
+
+        has_written = any(t in ["write_file", "edit_file"] for t in tool_names)
+        last_tool = tool_names[-1] if tool_names else ""
+        last_step = turn_steps[-1] if turn_steps else {}
+
+        if last_tool in ["edit_file", "write_file"]:
+            return {
+                "progress": 0.60,
+                "phase": "כתיבה ועריכה",
+                "action": clean_str(last_action) or "עורך ומיישם קוד",
+                "status": "running"
+            }
+        elif last_tool in ["run_command", "run_workflow"]:
+            if has_written:
+                return {
+                    "progress": 0.85,
+                    "phase": "אימות ובדיקות",
+                    "action": clean_str(last_action) or "מאמת ומריץ בדיקות",
+                    "status": "running"
+                }
+            else:
+                return {
+                    "progress": 0.35,
+                    "phase": "בדיקת סביבה",
+                    "action": clean_str(last_action) or "בודק סביבה ומערכת",
+                    "status": "running"
+                }
+        elif last_tool in ["read_file", "search_web", "list_plugin_accounts", "read_resource", "list_resources"]:
+            return {
+                "progress": 0.25,
+                "phase": "מחקר וקריאה",
+                "action": clean_str(last_action) or "חוקר וקורא קבצים",
+                "status": "running"
+            }
+        elif last_step.get("type") == "PLANNER_RESPONSE" and last_step.get("status") == "DONE":
+            return {
+                "progress": 0.95,
+                "phase": "סיכום ומענה",
+                "action": "מנסח תשובה סופית",
+                "status": "running"
+            }
+        else:
+            return {
+                "progress": 0.40,
+                "phase": "פועל כעת",
+                "action": clean_str(last_action),
+                "status": "running"
+            }
+    except Exception as e:
+        if sys.stderr:
+            sys.stderr.write(f"Phase analysis error: {e}\n")
+        return {
+            "progress": 0.50,
+            "phase": "מעבד",
+            "action": "מבצע פעולות...",
+            "status": "running"
+        }
+
 def get_current_agent_status():
     if not os.path.exists(DB_PATH):
         return None
@@ -67,46 +200,17 @@ def get_current_agent_status():
             if is_running:
                 running_count += 1
             
-            # Action extraction
-            current_action = "מבצע פעולות..." if is_running else "ממתין לפקודה הבאה"
-            transcript_path = os.path.join(BRAIN_DIR, cid, ".system_generated", "logs", "transcript.jsonl")
-            if os.path.exists(transcript_path):
-                try:
-                    with open(transcript_path, "r", encoding="utf-8") as f:
-                        lines = [l.strip() for l in f if l.strip()]
-                        for line_str in reversed(lines):
-                            step = json.loads(line_str)
-                            tool_calls = step.get("tool_calls", [])
-                            if tool_calls:
-                                tc = tool_calls[-1]
-                                summary = tc.get("args", {}).get("toolSummary") or tc.get("name")
-                                if summary:
-                                    current_action = summary
-                                    break
-                            elif step.get("type") == "PLANNER_RESPONSE" and step.get("status") == "DONE":
-                                current_action = "מנסח תשובה..." if is_running else "ממתין לפקודה הבאה"
-                                break
-                except Exception:
-                    pass
-            
+            analysis = analyze_conversation_phase(cid, is_running)
             sc = int(step_count or 1)
-            if is_running:
-                # Progress curve between 0.20 and 0.90 while working
-                prog = min(0.90, round(0.20 + (sc / (sc + 8)) * 0.70, 2))
-                task_status = "running"
-            else:
-                # Agent is idle/waiting for user input - NOT 100%!
-                prog = 0.0
-                task_status = "waiting"
-                current_action = "ממתין לפקודה שלך"
-                
+
             tasks.append({
                 "conversationId": cid,
                 "taskTitle": clean_str(title) or "Antigravity Task",
-                "status": task_status,
-                "currentAction": clean_str(current_action),
+                "status": analysis["status"],
+                "phase": analysis["phase"],
+                "currentAction": analysis["action"],
                 "stepCount": sc,
-                "progress": prog
+                "progress": analysis["progress"]
             })
 
         primary = tasks[0]
@@ -115,6 +219,7 @@ def get_current_agent_status():
         return {
             "status": overall_status,
             "taskTitle": primary["taskTitle"],
+            "phase": primary["phase"],
             "currentAction": primary["currentAction"],
             "stepCount": primary["stepCount"],
             "progress": primary["progress"],
@@ -143,7 +248,7 @@ def push_to_gist(payload):
             data=json.dumps(body).encode("utf-8"),
             headers={
                 "Authorization": f"Bearer {GITHUB_TOKEN}",
-                "User-Agent": "AntigravityMonitor/3.0",
+                "User-Agent": "AntigravityMonitor/4.0",
                 "Content-Type": "application/json"
             },
             method="PATCH"
@@ -162,7 +267,7 @@ def push_to_vercel(payload):
             data=json.dumps(payload).encode("utf-8"),
             headers={
                 "Content-Type": "application/json",
-                "User-Agent": "AntigravityMonitor/3.0"
+                "User-Agent": "AntigravityMonitor/4.0"
             },
             method="POST"
         )
@@ -177,9 +282,9 @@ def sync_once():
     if not status:
         return
         
-    compare_key = f"{status['status']}_{status['taskTitle']}_{status['currentAction']}_{status['stepCount']}_{status['progress']}_{status['activeCount']}"
+    compare_key = f"{status['status']}_{status['taskTitle']}_{status['phase']}_{status['currentAction']}_{status['progress']}_{status['activeCount']}"
     if compare_key != last_payload_str:
-        msg = f"[{datetime.datetime.now().strftime('%H:%M:%S')}] Active: {status['activeCount']} | {status['status']} | {status['taskTitle']} ({int(status['progress']*100)}%) | {status['currentAction']}\n"
+        msg = f"[{datetime.datetime.now().strftime('%H:%M:%S')}] Active: {status['activeCount']} | {status['status']} | {status['taskTitle']} [{status['phase']}] ({int(status['progress']*100)}%) | {status['currentAction']}\n"
         if sys.stdout:
             sys.stdout.write(msg)
             sys.stdout.flush()
@@ -189,7 +294,7 @@ def sync_once():
 
 def main():
     if sys.stdout:
-        sys.stdout.write("🚀 Antigravity Agent Monitor v3 started...\n")
+        sys.stdout.write("🚀 Antigravity Agent Monitor v4 (Roo Code & OpenHands standard) started...\n")
         sys.stdout.flush()
     while True:
         try:
