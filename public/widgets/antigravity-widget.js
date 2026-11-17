@@ -5,26 +5,24 @@
 /**
  * ⚡ Antigravity Agent - Minimalist iOS Task, Progress Bar & Live Status Widget
  * 
- * - מודד התקדמות אמיתית לפי תקן Roo Code & OpenHands (שלבי פיתוח ורשימות צעדים)
- * - מציג שלב מדויק: מחקר וקריאה (25%) | כתיבה ועריכה (60%) | אימות ובדיקות (85%) | שלב X/Y
- * - ללא ניחושים וללא תקיעות על 100% במנוחה
- * - תמיכה מלאה במסך הנעילה (Lock Screen) ובמסך הבית (Medium / Small)
+ * - משיכת נתוני זמן אמת ישירה מ-GitHub API
+ * - Timeout מורחב (8 שניות) לעבודה אמינה ברשת סלולרית ברקע
+ * - הגדרת תזמון רענון תקני מול מערכת iOS
  */
 
 const GIST_ID = "f307290d03418549eeee78997070fe96";
 const GIST_API_URL = `https://api.github.com/gists/${GIST_ID}`;
 const GIST_RAW_URL = `https://gist.githubusercontent.com/hadarai9087-hub/${GIST_ID}/raw/status.json`;
 
-// שים כאן את הכתובת של Antigravity באייפון לפתיחה בלחיצה על הווידג'ט
 const APP_URL = "https://github.com/hadarai9087-hub/antigravity-agent-widget";
 
 async function fetchStatus() {
-  // 1. קריאה ישירה מ-GitHub API (ללא מטמון)
+  // 1. קריאה ישירה מ-GitHub API
   try {
     const req = new Request(`${GIST_API_URL}?t=${Date.now()}`);
-    req.timeoutInterval = 4;
+    req.timeoutInterval = 8;
     req.headers = {
-      "User-Agent": "AntigravityWidget/4.0",
+      "User-Agent": "AntigravityWidget/5.0",
       "Cache-Control": "no-cache, no-store, must-revalidate",
       "Pragma": "no-cache"
     };
@@ -40,8 +38,8 @@ async function fetchStatus() {
   // 2. פולבק
   try {
     const req = new Request(`${GIST_RAW_URL}?t=${Date.now()}`);
-    req.timeoutInterval = 4;
-    req.headers = { "Cache-Control": "no-cache", "User-Agent": "AntigravityWidget/4.0" };
+    req.timeoutInterval = 8;
+    req.headers = { "Cache-Control": "no-cache", "User-Agent": "AntigravityWidget/5.0" };
     const res = await req.loadJSON();
     if (res && res.status) return res;
   } catch (e) {}
@@ -50,7 +48,7 @@ async function fetchStatus() {
     status: "waiting",
     taskTitle: "Antigravity Agent",
     phase: "ממתין לפקודה",
-    currentAction: "ממתין לפקודה שלך",
+    currentAction: "מוכן לפקודה הבאה",
     stepCount: 0,
     progress: 0,
     activeCount: 0,
@@ -59,7 +57,6 @@ async function fetchStatus() {
   };
 }
 
-// ציור בר התקדמות פיקסל-פרפקט ב-DrawContext
 function drawProgressBar(progress, width, height, fillColor, trackColor) {
   const dc = new DrawContext();
   dc.size = new Size(width, height);
@@ -68,14 +65,12 @@ function drawProgressBar(progress, width, height, fillColor, trackColor) {
 
   const radius = height / 2;
 
-  // מסילת רקע
   const trackPath = new Path();
   trackPath.addRoundedRect(new Rect(0, 0, width, height), radius, radius);
   dc.addPath(trackPath);
   dc.setFillColor(trackColor || new Color("#FFFFFF", 0.18));
   dc.fillPath();
 
-  // מילוי התקדמות
   const p = Math.max(0.04, Math.min(1.0, Number(progress) || 0.05));
   const fillWidth = Math.max(height, width * p);
   const fillPath = new Path();
@@ -110,20 +105,19 @@ async function createWidget(family) {
     widget.setPadding(12, 12, 12, 12);
     renderSmall(widget, data, isRunning);
   } else {
-    // Medium - ברירת מחדל
     widget.backgroundColor = new Color("#000000");
     widget.setPadding(14, 16, 14, 16);
     renderMedium(widget, data, tasks, isRunning);
   }
 
-  // רענון חי
-  widget.refreshAfterDate = new Date(Date.now() + 1000 * (isRunning ? 60 : 180));
+  // הגדרת תאריך רענון תקני ש-iOS מכבדת
+  const nextRefresh = new Date();
+  nextRefresh.setMinutes(nextRefresh.getMinutes() + (isRunning ? 2 : 5));
+  widget.refreshAfterDate = nextRefresh;
+
   return widget;
 }
 
-// -------------------------------------------------------------
-// 1. מסך נעילה (Lock Screen)
-// -------------------------------------------------------------
 function renderLockScreen(widget, data, tasks, isRunning) {
   const activeTasks = tasks.filter(t => t.status === "running");
   const isMulti = activeTasks.length >= 2;
@@ -204,9 +198,6 @@ function renderLockScreen(widget, data, tasks, isRunning) {
   }
 }
 
-// -------------------------------------------------------------
-// 2. מסך הבית - Medium
-// -------------------------------------------------------------
 function renderMedium(widget, data, tasks, isRunning) {
   const activeTasks = tasks.filter(t => t.status === "running");
   const isMulti = activeTasks.length >= 2;
@@ -336,9 +327,6 @@ function renderMedium(widget, data, tasks, isRunning) {
   }
 }
 
-// -------------------------------------------------------------
-// 3. מסך הבית - Small
-// -------------------------------------------------------------
 function renderSmall(widget, data, isRunning) {
   const t = data.tasks?.[0] || data;
 
