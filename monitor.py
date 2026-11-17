@@ -38,58 +38,86 @@ VERCEL_STATUS_URL = config_data.get("vercel_status_url", "https://antigravity-ag
 
 last_payload_str = ""
 
+def clean_str(s):
+    if not s:
+        return ""
+    return str(s).strip('"\' \t\r\n')
+
 def get_current_agent_status():
     if not os.path.exists(DB_PATH):
         return None
     try:
         con = sqlite3.connect(DB_PATH)
-        # Prioritize any currently running conversation; if none, order by last_modified_time
+        # Fetch up to 4 recent conversations
         rows = con.execute("""
             SELECT conversation_id, title, status, not_fully_idle, step_count, last_modified_time 
             FROM conversation_summaries 
             ORDER BY not_fully_idle DESC, last_modified_time DESC 
-            LIMIT 5
+            LIMIT 4
         """).fetchall()
         con.close()
         
         if not rows:
             return None
             
-        row = rows[0]
-        cid, title, status, not_fully_idle, step_count, last_mod = row
-        is_running = (not_fully_idle == 1) or (status == 'CASCADE_RUN_STATUS_RUNNING')
+        tasks = []
+        running_count = 0
         
-        current_action = "מבצע פעולות..." if is_running else "פנוי למשימה חדשה"
-        
-        # Read latest action from transcript by walking backwards
-        transcript_path = os.path.join(BRAIN_DIR, cid, ".system_generated", "logs", "transcript.jsonl")
-        if os.path.exists(transcript_path):
-            try:
-                with open(transcript_path, "r", encoding="utf-8") as f:
-                    lines = [l.strip() for l in f if l.strip()]
-                    for line_str in reversed(lines):
-                        step = json.loads(line_str)
-                        tool_calls = step.get("tool_calls", [])
-                        if tool_calls:
-                            tc = tool_calls[-1]
-                            summary = tc.get("args", {}).get("toolSummary") or tc.get("name")
-                            if summary:
-                                current_action = summary
+        for cid, title, status, not_fully_idle, step_count, last_mod in rows:
+            is_running = (not_fully_idle == 1) or (status == 'CASCADE_RUN_STATUS_RUNNING')
+            if is_running:
+                running_count += 1
+            
+            # Action extraction
+            current_action = "פועל ברקע..." if is_running else "הושלם"
+            transcript_path = os.path.join(BRAIN_DIR, cid, ".system_generated", "logs", "transcript.jsonl")
+            if os.path.exists(transcript_path):
+                try:
+                    with open(transcript_path, "r", encoding="utf-8") as f:
+                        lines = [l.strip() for l in f if l.strip()]
+                        for line_str in reversed(lines):
+                            step = json.loads(line_str)
+                            tool_calls = step.get("tool_calls", [])
+                            if tool_calls:
+                                tc = tool_calls[-1]
+                                summary = tc.get("args", {}).get("toolSummary") or tc.get("name")
+                                if summary:
+                                    current_action = summary
+                                    break
+                            elif step.get("type") == "PLANNER_RESPONSE" and step.get("status") == "DONE":
+                                current_action = "מנסח תשובה..."
                                 break
-                        elif step.get("type") == "PLANNER_RESPONSE" and step.get("status") == "DONE":
-                            current_action = "מנסח תשובה..."
-                            break
-            except Exception:
-                pass
-        
-        final_status = "running" if is_running else "done"
+                except Exception:
+                    pass
+            
+            # Calculate dynamic progress
+            sc = int(step_count or 1)
+            if not is_running:
+                prog = 1.0
+            else:
+                # Progress curve: starts at 0.15, rises asymptotically towards 0.92
+                prog = min(0.92, round(0.15 + (sc / (sc + 7)) * 0.77, 2))
+                
+            tasks.append({
+                "conversationId": cid,
+                "taskTitle": clean_str(title) or "Antigravity Task",
+                "status": "running" if is_running else "done",
+                "currentAction": clean_str(current_action),
+                "stepCount": sc,
+                "progress": prog
+            })
+
+        primary = tasks[0]
+        overall_status = "running" if running_count > 0 else primary["status"]
 
         return {
-            "status": final_status,
-            "taskTitle": title or "Antigravity Agent",
-            "currentAction": str(current_action).strip('"\''),
-            "stepCount": int(step_count or 0),
-            "conversationId": cid,
+            "status": overall_status,
+            "taskTitle": primary["taskTitle"],
+            "currentAction": primary["currentAction"],
+            "stepCount": primary["stepCount"],
+            "progress": primary["progress"],
+            "activeCount": running_count,
+            "tasks": tasks[:3],
             "updatedAt": datetime.datetime.now(datetime.timezone.utc).isoformat()
         }
     except Exception as e:
@@ -113,7 +141,7 @@ def push_to_gist(payload):
             data=json.dumps(body).encode("utf-8"),
             headers={
                 "Authorization": f"Bearer {GITHUB_TOKEN}",
-                "User-Agent": "AntigravityMonitor/1.0",
+                "User-Agent": "AntigravityMonitor/2.0",
                 "Content-Type": "application/json"
             },
             method="PATCH"
@@ -132,7 +160,7 @@ def push_to_vercel(payload):
             data=json.dumps(payload).encode("utf-8"),
             headers={
                 "Content-Type": "application/json",
-                "User-Agent": "AntigravityMonitor/1.0"
+                "User-Agent": "AntigravityMonitor/2.0"
             },
             method="POST"
         )
@@ -147,9 +175,9 @@ def sync_once():
     if not status:
         return
         
-    compare_key = f"{status['status']}_{status['taskTitle']}_{status['currentAction']}_{status['stepCount']}"
+    compare_key = f"{status['status']}_{status['taskTitle']}_{status['currentAction']}_{status['stepCount']}_{status['progress']}_{status['activeCount']}"
     if compare_key != last_payload_str:
-        msg = f"[{datetime.datetime.now().strftime('%H:%M:%S')}] Updating status: {status['status']} | {status['taskTitle']} | {status['currentAction']}\n"
+        msg = f"[{datetime.datetime.now().strftime('%H:%M:%S')}] Active: {status['activeCount']} | {status['status']} | {status['taskTitle']} ({int(status['progress']*100)}%) | {status['currentAction']}\n"
         if sys.stdout:
             sys.stdout.write(msg)
             sys.stdout.flush()
@@ -159,7 +187,7 @@ def sync_once():
 
 def main():
     if sys.stdout:
-        sys.stdout.write("🚀 Antigravity Agent Monitor started...\n")
+        sys.stdout.write("🚀 Antigravity Agent Monitor v2 started...\n")
         sys.stdout.flush()
     while True:
         try:
