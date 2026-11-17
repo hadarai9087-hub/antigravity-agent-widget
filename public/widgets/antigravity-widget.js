@@ -3,39 +3,53 @@
 // icon-color: purple; icon-glyph: bolt;
 
 /**
- * ⚡ Antigravity Agent - Minimalist iOS Task, Progress Bar & Multi-Project Widget
+ * ⚡ Antigravity Agent - Minimalist iOS Task, Progress Bar & Live Status Widget
  * 
- * - כולל בר טעינה (Progress Bar) חלק ומעוגל המציג את התקדמות המשימה
- * - תמיכה בריבוי משימות במקביל: אם פועלים שני פרויקטים, מציג את שניהם יחד
- * - מותאם למסך הנעילה (Lock Screen) ולמסך הבית (Medium / Small)
- * - עיצוב Apple HIG מינימליסטי ברמת דיוק של פיקסל (OLED Black)
+ * - משיכת נתוני זמן אמת ישירה מ-GitHub API (ללא מטמון, 0 עיכובים)
+ * - בר התקדמות חי רק כשהסוכן באמת מבצע פעולה
+ * - כשהסוכן מסיים לענות וממתין להודעה שלך: מציג "ממתין לפקודה" ולא נתקע על 100%!
+ * - תמיכה במסך נעילה (Lock Screen) ובמסך הבית (Medium / Small)
  */
 
-const GIST_RAW_URL = "https://gist.githubusercontent.com/hadarai9087-hub/f307290d03418549eeee78997070fe96/raw/status.json";
-const VERCEL_API_URL = "https://antigravity-agent-widget.vercel.app/api/status";
+const GIST_ID = "f307290d03418549eeee78997070fe96";
+const GIST_API_URL = `https://api.github.com/gists/${GIST_ID}`;
+const GIST_RAW_URL = `https://gist.githubusercontent.com/hadarai9087-hub/${GIST_ID}/raw/status.json`;
+
+// שים כאן את הכתובת של Antigravity באייפון לפתיחה בלחיצה על הווידג'ט
 const APP_URL = "https://github.com/hadarai9087-hub/antigravity-agent-widget";
 
 async function fetchStatus() {
+  // 1. קריאה ישירה מ-GitHub API (ללא מטמון - עוקף את ה-5 דקות של ה-Raw CDN!)
   try {
-    const freshUrl = `${GIST_RAW_URL}?t=${Date.now()}`;
-    const req = new Request(freshUrl);
+    const req = new Request(`${GIST_API_URL}?t=${Date.now()}`);
     req.timeoutInterval = 4;
-    req.headers = { "Cache-Control": "no-cache", "User-Agent": "AntigravityWidget/2.0" };
+    req.headers = {
+      "User-Agent": "AntigravityWidget/3.0",
+      "Cache-Control": "no-cache, no-store, must-revalidate",
+      "Pragma": "no-cache"
+    };
     const res = await req.loadJSON();
-    if (res && res.status) return res;
-  } catch (e) {}
+    const rawContent = res?.files?.["status.json"]?.content;
+    if (rawContent) {
+      return JSON.parse(rawContent);
+    }
+  } catch (e) {
+    console.warn("Direct API fetch failed, trying raw fallback:", e);
+  }
 
+  // 2. פולבק ל-Raw URL
   try {
-    const req = new Request(VERCEL_API_URL);
+    const req = new Request(`${GIST_RAW_URL}?t=${Date.now()}`);
     req.timeoutInterval = 4;
+    req.headers = { "Cache-Control": "no-cache", "User-Agent": "AntigravityWidget/3.0" };
     const res = await req.loadJSON();
     if (res && res.status) return res;
   } catch (e) {}
 
   return {
-    status: "idle",
+    status: "waiting",
     taskTitle: "Antigravity Agent",
-    currentAction: "ממתין לפקודה",
+    currentAction: "ממתין לפקודה שלך",
     stepCount: 0,
     progress: 0,
     activeCount: 0,
@@ -44,9 +58,7 @@ async function fetchStatus() {
   };
 }
 
-// =============================================================
-// ציור בר התקדמות פיקסל-פרפקט ב-DrawContext (בסגנון Apple)
-// =============================================================
+// ציור בר התקדמות פיקסל-פרפקט ב-DrawContext
 function drawProgressBar(progress, width, height, fillColor, trackColor) {
   const dc = new DrawContext();
   dc.size = new Size(width, height);
@@ -84,7 +96,6 @@ async function createWidget(family) {
                        targetFamily === "accessoryCircular";
 
   const isRunning = data.status === "running";
-  const isDone = data.status === "done";
   const tasks = Array.isArray(data.tasks) && data.tasks.length > 0 ? data.tasks : [data];
 
   widget.url = APP_URL;
@@ -92,28 +103,27 @@ async function createWidget(family) {
   if (isLockScreen) {
     widget.backgroundColor = new Color("#000000", 0);
     widget.setPadding(0, 2, 0, 2);
-    renderLockScreen(widget, data, tasks, isRunning, isDone);
+    renderLockScreen(widget, data, tasks, isRunning);
   } else if (targetFamily === "small") {
     widget.backgroundColor = new Color("#000000");
     widget.setPadding(12, 12, 12, 12);
-    renderSmall(widget, data, isRunning, isDone);
+    renderSmall(widget, data, isRunning);
   } else {
-    // Medium - ברירת מחדל מומלצת למסך הבית
+    // Medium - ברירת מחדל למסך הבית
     widget.backgroundColor = new Color("#000000");
     widget.setPadding(14, 16, 14, 16);
-    renderMedium(widget, data, tasks, isRunning, isDone);
+    renderMedium(widget, data, tasks, isRunning);
   }
 
-  // תזמון רענון: כל 1-2 דקות כשיש פעילות
-  widget.refreshAfterDate = new Date(Date.now() + 1000 * 60 * (isRunning ? 2 : 5));
+  // תזמון רענון: כל דקה כשיש פעילות, כל 3 דקות במנוחה
+  widget.refreshAfterDate = new Date(Date.now() + 1000 * (isRunning ? 60 : 180));
   return widget;
 }
 
 // -------------------------------------------------------------
-// 1. מסך נעילה (Lock Screen Rectangular)
-// תומך במשימה אחת (עם בר מפורט) או שתי משימות במקביל
+// 1. מסך נעילה (Lock Screen)
 // -------------------------------------------------------------
-function renderLockScreen(widget, data, tasks, isRunning, isDone) {
+function renderLockScreen(widget, data, tasks, isRunning) {
   const activeTasks = tasks.filter(t => t.status === "running");
   const isMulti = activeTasks.length >= 2;
 
@@ -121,7 +131,7 @@ function renderLockScreen(widget, data, tasks, isRunning, isDone) {
   stack.layoutVertically();
 
   if (isMulti) {
-    // --- מצב ריבוי משימות במקביל (שני פרויקטים יחד) ---
+    // שני פרויקטים רצים במקביל
     const header = stack.addStack();
     header.layoutHorizontally();
     const dot = header.addText("● ");
@@ -152,23 +162,25 @@ function renderLockScreen(widget, data, tasks, isRunning, isDone) {
       bar.imageSize = new Size(135, 3);
     }
   } else {
-    // --- מצב משימה יחידה (פוקוס מלא + בר טעינה) ---
+    // פרויקט יחיד או ממתין
     const t = activeTasks[0] || tasks[0] || data;
 
     const titleRow = stack.addStack();
     titleRow.layoutHorizontally();
     titleRow.centerAlignContent();
 
-    const icon = titleRow.addText(isRunning ? "● " : (isDone ? "✓ " : "• "));
+    const icon = titleRow.addText(isRunning ? "● " : "💤 ");
     icon.font = Font.boldSystemFont(11);
 
-    const head = titleRow.addText(isRunning ? "Antigravity עובד" : (isDone ? "Antigravity סיים" : "Antigravity"));
+    const head = titleRow.addText(isRunning ? "Antigravity עובד" : "Antigravity ממתין");
     head.font = Font.boldSystemFont(11);
 
     titleRow.addSpacer();
 
-    const pct = titleRow.addText(isRunning ? `${Math.round(t.progress * 100)}%` : "");
-    pct.font = Font.boldSystemFont(10);
+    if (isRunning && t.progress > 0) {
+      const pct = titleRow.addText(`${Math.round(t.progress * 100)}%`);
+      pct.font = Font.boldSystemFont(10);
+    }
 
     stack.addSpacer(2);
 
@@ -178,29 +190,27 @@ function renderLockScreen(widget, data, tasks, isRunning, isDone) {
 
     stack.addSpacer(1);
 
-    const actText = stack.addText(cleanActionName(t.currentAction));
+    const actText = stack.addText(isRunning ? cleanActionName(t.currentAction) : "מוכן לפקודה הבאה");
     actText.font = Font.systemFont(8);
     actText.textColor = new Color("#A1A1AA");
     actText.lineLimit = 1;
 
-    stack.addSpacer(3);
-
-    // בר הטעינה במסך הנעילה
-    const barImg = drawProgressBar(t.progress, 138, 3.5, new Color("#FFFFFF"), new Color("#FFFFFF", 0.22));
-    const bar = stack.addImage(barImg);
-    bar.imageSize = new Size(138, 3.5);
+    if (isRunning && t.progress > 0) {
+      stack.addSpacer(3);
+      const barImg = drawProgressBar(t.progress, 138, 3.5, new Color("#FFFFFF"), new Color("#FFFFFF", 0.22));
+      const bar = stack.addImage(barImg);
+      bar.imageSize = new Size(138, 3.5);
+    }
   }
 }
 
 // -------------------------------------------------------------
-// 2. מסך הבית - מלבן רחב (Medium Widget)
-// תצוגה עשירה ויוקרתית עם בר טעינה חלק ואפשרות לשני פרויקטים
+// 2. מסך הבית - Medium
 // -------------------------------------------------------------
-function renderMedium(widget, data, tasks, isRunning, isDone) {
+function renderMedium(widget, data, tasks, isRunning) {
   const activeTasks = tasks.filter(t => t.status === "running");
   const isMulti = activeTasks.length >= 2;
 
-  // כותרת עליונה
   const topRow = widget.addStack();
   topRow.layoutHorizontally();
   topRow.centerAlignContent();
@@ -211,23 +221,13 @@ function renderMedium(widget, data, tasks, isRunning, isDone) {
   statusBadge.setPadding(3, 8, 3, 8);
   statusBadge.cornerRadius = 99;
 
-  let badgeBg = new Color("#8E8E93", 0.18);
-  let dotColor = new Color("#8E8E93");
-  let statusText = "ממתין";
-
-  if (isRunning) {
-    badgeBg = new Color("#34C759", 0.18);
-    dotColor = new Color("#34C759");
-    statusText = isMulti ? `${activeTasks.length} משימות במקביל` : "פועל כעת";
-  } else if (isDone) {
-    badgeBg = new Color("#FACC15", 0.18);
-    dotColor = new Color("#FACC15");
-    statusText = "הושלם בהצלחה";
-  }
+  let badgeBg = isRunning ? new Color("#34C759", 0.18) : new Color("#8E8E93", 0.18);
+  let dotColor = isRunning ? new Color("#34C759") : new Color("#8E8E93");
+  let statusText = isRunning ? (isMulti ? `${activeTasks.length} משימות במקביל` : "פועל כעת") : "ממתין לפקודה";
 
   statusBadge.backgroundColor = badgeBg;
 
-  const dot = statusBadge.addText(isRunning ? "● " : (isDone ? "✓ " : "• "));
+  const dot = statusBadge.addText(isRunning ? "● " : "💤 ");
   dot.font = Font.systemFont(11);
   dot.textColor = dotColor;
 
@@ -244,7 +244,6 @@ function renderMedium(widget, data, tasks, isRunning, isDone) {
   widget.addSpacer(10);
 
   if (isMulti) {
-    // --- תצוגת 2 פרויקטים במקביל ---
     for (let i = 0; i < Math.min(2, activeTasks.length); i++) {
       const t = activeTasks[i];
       if (i > 0) widget.addSpacer(8);
@@ -275,13 +274,11 @@ function renderMedium(widget, data, tasks, isRunning, isDone) {
 
       card.addSpacer(4);
 
-      // בר התקדמות לכל פרויקט
       const barImg = drawProgressBar(t.progress, 275, 4.5, new Color("#34C759"), new Color("#27272A"));
       const bar = card.addImage(barImg);
       bar.imageSize = new Size(275, 4.5);
     }
   } else {
-    // --- תצוגת פרויקט יחיד עם בר טעינה רחב ---
     const t = activeTasks[0] || tasks[0] || data;
 
     const row = widget.addStack();
@@ -295,15 +292,17 @@ function renderMedium(widget, data, tasks, isRunning, isDone) {
 
     row.addSpacer();
 
-    const pct = row.addText(`${Math.round(t.progress * 100)}%`);
-    pct.font = Font.boldSystemFont(13);
-    pct.textColor = isRunning ? new Color("#34C759") : new Color("#FACC15");
+    if (isRunning && t.progress > 0) {
+      const pct = row.addText(`${Math.round(t.progress * 100)}%`);
+      pct.font = Font.boldSystemFont(13);
+      pct.textColor = new Color("#34C759");
+    }
 
     widget.addSpacer(4);
 
     const actionText = isRunning 
       ? (cleanActionName(t.currentAction) || "מבצע פעולות...") 
-      : (isDone ? "כל המשימות הסתיימו בהצלחה" : "הסוכן זמין בשרת");
+      : "הסוכן סיים לענות ומוכן לפקודה הבאה";
     
     const subtitle = widget.addText(actionText);
     subtitle.font = Font.systemFont(12);
@@ -312,17 +311,17 @@ function renderMedium(widget, data, tasks, isRunning, isDone) {
 
     widget.addSpacer(8);
 
-    // בר טעינה רחב
-    const barImg = drawProgressBar(t.progress, 275, 6, isRunning ? new Color("#34C759") : new Color("#FACC15"), new Color("#27272A"));
-    const bar = widget.addImage(barImg);
-    bar.imageSize = new Size(275, 6);
-
-    widget.addSpacer(8);
+    if (isRunning && t.progress > 0) {
+      const barImg = drawProgressBar(t.progress, 275, 6, new Color("#34C759"), new Color("#27272A"));
+      const bar = widget.addImage(barImg);
+      bar.imageSize = new Size(275, 6);
+      widget.addSpacer(8);
+    }
 
     const botRow = widget.addStack();
     botRow.layoutHorizontally();
     if (t.stepCount > 0) {
-      const stepText = botRow.addText(`צעד ${t.stepCount}`);
+      const stepText = botRow.addText(`צעדים: ${t.stepCount}`);
       stepText.font = Font.systemFont(10);
       stepText.textColor = new Color("#71717A");
     }
@@ -334,30 +333,32 @@ function renderMedium(widget, data, tasks, isRunning, isDone) {
 }
 
 // -------------------------------------------------------------
-// 3. מסך הבית - ריבוע קטן (Small Widget)
+// 3. מסך הבית - Small
 // -------------------------------------------------------------
-function renderSmall(widget, data, isRunning, isDone) {
+function renderSmall(widget, data, isRunning) {
   const t = data.tasks?.[0] || data;
 
   const topRow = widget.addStack();
   topRow.layoutHorizontally();
   topRow.centerAlignContent();
 
-  const dot = topRow.addText(isRunning ? "●" : (isDone ? "✓" : "•"));
+  const dot = topRow.addText(isRunning ? "●" : "💤");
   dot.font = Font.boldSystemFont(14);
-  dot.textColor = isRunning ? new Color("#34C759") : (isDone ? new Color("#FACC15") : new Color("#71717A"));
+  dot.textColor = isRunning ? new Color("#34C759") : new Color("#8E8E93");
 
   topRow.addSpacer(4);
 
-  const statusLabel = topRow.addText(isRunning ? "מבצע..." : (isDone ? "הושלם" : "ממתין"));
+  const statusLabel = topRow.addText(isRunning ? "מבצע..." : "ממתין");
   statusLabel.font = Font.boldSystemFont(12);
-  statusLabel.textColor = isRunning ? new Color("#34C759") : (isDone ? new Color("#FACC15") : new Color("#8E8E93"));
+  statusLabel.textColor = isRunning ? new Color("#34C759") : new Color("#8E8E93");
 
   topRow.addSpacer();
 
-  const pct = topRow.addText(`${Math.round(t.progress * 100)}%`);
-  pct.font = Font.boldSystemFont(11);
-  pct.textColor = isRunning ? new Color("#34C759") : new Color("#FACC15");
+  if (isRunning && t.progress > 0) {
+    const pct = topRow.addText(`${Math.round(t.progress * 100)}%`);
+    pct.font = Font.boldSystemFont(11);
+    pct.textColor = new Color("#34C759");
+  }
 
   widget.addSpacer();
 
@@ -368,18 +369,18 @@ function renderSmall(widget, data, isRunning, isDone) {
 
   widget.addSpacer(4);
 
-  const actionText = isRunning ? cleanActionName(t.currentAction) : (isDone ? "הסתיים" : "פנוי");
+  const actionText = isRunning ? cleanActionName(t.currentAction) : "פנוי";
   const sub = widget.addText(actionText);
   sub.font = Font.systemFont(10);
   sub.textColor = new Color("#A1A1AA");
   sub.lineLimit = 1;
 
-  widget.addSpacer(6);
-
-  // בר טעינה קטן
-  const barImg = drawProgressBar(t.progress, 125, 4, isRunning ? new Color("#34C759") : new Color("#FACC15"), new Color("#27272A"));
-  const bar = widget.addImage(barImg);
-  bar.imageSize = new Size(125, 4);
+  if (isRunning && t.progress > 0) {
+    widget.addSpacer(6);
+    const barImg = drawProgressBar(t.progress, 125, 4, new Color("#34C759"), new Color("#27272A"));
+    const bar = widget.addImage(barImg);
+    bar.imageSize = new Size(125, 4);
+  }
 
   widget.addSpacer();
 
@@ -414,13 +415,13 @@ if (config.runsInWidget) {
   const widget = await createWidget();
   Script.setWidget(widget);
 } else {
-  // הרצה ידנית בתוך Scriptable
   const status = await fetchStatus();
   const alert = new Alert();
   alert.title = "⚡ Antigravity Agent Status";
   
-  const stateHeb = status.status === "running" ? "🟢 פועל כעת" : (status.status === "done" ? "✨ הושלם בהצלחה" : "💤 ממתין לפקודה");
-  alert.message = `משימה: ${status.taskTitle}\nסטטוס: ${stateHeb}\nהתקדמות: ${Math.round((status.progress || 0) * 100)}%\nפעולה: ${cleanActionName(status.currentAction)}\nעודכן: ${formatRelativeTime(status.updatedAt)}`;
+  const stateHeb = status.status === "running" ? "🟢 פועל כעת" : "💤 ממתין לפקודה שלך";
+  const progText = status.status === "running" ? `\nהתקדמות: ${Math.round((status.progress || 0) * 100)}%` : "";
+  alert.message = `משימה: ${status.taskTitle}\nסטטוס: ${stateHeb}${progText}\nפעולה: ${cleanActionName(status.currentAction)}\nעודכן: ${formatRelativeTime(status.updatedAt)}`;
   
   alert.addAction("📱 הצג ווידג'ט (Medium)");
   alert.addAction("⏹️ הצג ווידג'ט (Small)");

@@ -48,7 +48,6 @@ def get_current_agent_status():
         return None
     try:
         con = sqlite3.connect(DB_PATH)
-        # Fetch up to 4 recent conversations
         rows = con.execute("""
             SELECT conversation_id, title, status, not_fully_idle, step_count, last_modified_time 
             FROM conversation_summaries 
@@ -69,7 +68,7 @@ def get_current_agent_status():
                 running_count += 1
             
             # Action extraction
-            current_action = "פועל ברקע..." if is_running else "הושלם"
+            current_action = "מבצע פעולות..." if is_running else "ממתין לפקודה הבאה"
             transcript_path = os.path.join(BRAIN_DIR, cid, ".system_generated", "logs", "transcript.jsonl")
             if os.path.exists(transcript_path):
                 try:
@@ -85,30 +84,33 @@ def get_current_agent_status():
                                     current_action = summary
                                     break
                             elif step.get("type") == "PLANNER_RESPONSE" and step.get("status") == "DONE":
-                                current_action = "מנסח תשובה..."
+                                current_action = "מנסח תשובה..." if is_running else "ממתין לפקודה הבאה"
                                 break
                 except Exception:
                     pass
             
-            # Calculate dynamic progress
             sc = int(step_count or 1)
-            if not is_running:
-                prog = 1.0
+            if is_running:
+                # Progress curve between 0.20 and 0.90 while working
+                prog = min(0.90, round(0.20 + (sc / (sc + 8)) * 0.70, 2))
+                task_status = "running"
             else:
-                # Progress curve: starts at 0.15, rises asymptotically towards 0.92
-                prog = min(0.92, round(0.15 + (sc / (sc + 7)) * 0.77, 2))
+                # Agent is idle/waiting for user input - NOT 100%!
+                prog = 0.0
+                task_status = "waiting"
+                current_action = "ממתין לפקודה שלך"
                 
             tasks.append({
                 "conversationId": cid,
                 "taskTitle": clean_str(title) or "Antigravity Task",
-                "status": "running" if is_running else "done",
+                "status": task_status,
                 "currentAction": clean_str(current_action),
                 "stepCount": sc,
                 "progress": prog
             })
 
         primary = tasks[0]
-        overall_status = "running" if running_count > 0 else primary["status"]
+        overall_status = "running" if running_count > 0 else "waiting"
 
         return {
             "status": overall_status,
@@ -141,7 +143,7 @@ def push_to_gist(payload):
             data=json.dumps(body).encode("utf-8"),
             headers={
                 "Authorization": f"Bearer {GITHUB_TOKEN}",
-                "User-Agent": "AntigravityMonitor/2.0",
+                "User-Agent": "AntigravityMonitor/3.0",
                 "Content-Type": "application/json"
             },
             method="PATCH"
@@ -160,7 +162,7 @@ def push_to_vercel(payload):
             data=json.dumps(payload).encode("utf-8"),
             headers={
                 "Content-Type": "application/json",
-                "User-Agent": "AntigravityMonitor/2.0"
+                "User-Agent": "AntigravityMonitor/3.0"
             },
             method="POST"
         )
@@ -187,7 +189,7 @@ def sync_once():
 
 def main():
     if sys.stdout:
-        sys.stdout.write("🚀 Antigravity Agent Monitor v2 started...\n")
+        sys.stdout.write("🚀 Antigravity Agent Monitor v3 started...\n")
         sys.stdout.flush()
     while True:
         try:

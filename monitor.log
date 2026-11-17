@@ -37,3 +37,126 @@
 [11:23:15] Updating status: running | iPhone Scriptable Widget For Antigravity | write_file
 🚀 Antigravity Agent Monitor v2 started...
 [11:23:18] Active: 1 | running | iPhone Scriptable Widget For Antigravity (90%) | Restart monitor v2 via Win32_Process
+[11:23:28] Active: 1 | running | iPhone Scriptable Widget For Antigravity (90%) | Check monitor.log for v2 startup
+[11:23:42] Active: 1 | running | iPhone Scriptable Widget For Antigravity (90%) | Check raw gist payload
+[11:24:53] Active: 1 | running | iPhone Scriptable Widget For Antigravity (90%) | write_file
+[11:25:36] Active: 1 | running | iPhone Scriptable Widget For Antigravity (90%) | Push progress bar update to GitHub
+[11:26:02] Active: 1 | running | iPhone Scriptable Widget For Antigravity (90%) | Check current raw status in Gist
+[11:26:33] Active: 2 | running | iPhone Scriptable Widget For Antigravity (90%) | Check current raw status in Gist
+[11:26:59] Active: 2 | running | iPhone Scriptable Widget For Antigravity (90%) | מנסח תשובה...
+[11:27:03] Active: 1 | running | Weissport App Bug Fixes (92%) | מנסח תשובה...
+[11:27:13] Active: 1 | running | Weissport App Bug Fixes (92%) | read_file
+[11:27:48] Active: 1 | running | Weissport App Bug Fixes (92%) | edit_file
+[11:28:10] Active: 1 | running | Weissport App Bug Fixes (92%) | edit_file
+[11:28:38] Active: 1 | running | Weissport App Bug Fixes (92%) | Push https URL update
+[11:29:13] Active: 0 | done | Weissport App Bug Fixes (100%) | מנסח תשובה...
+[11:29:57] Active: 1 | running | iPhone Scriptable Widget For Antigravity (90%) | מנסח תשובה...
+[11:30:10] Active: 1 | running | iPhone Scriptable Widget For Antigravity (90%) | Check monitor.log tail
+[11:30:30] Active: 2 | running | iPhone Scriptable Widget For Antigravity (90%) | Check monitor.log tail
+[11:30:46] Active: 2 | running | Weissport App Bug Fixes (92%) | מנסח תשובה...
+[11:31:03] Active: 2 | running | Weissport App Bug Fixes (92%) | search_web
+[11:31:38] Active: 2 | running | Weissport App Bug Fixes (92%) | search_web
+[11:31:48] Active: 1 | running | iPhone Scriptable Widget For Antigravity (90%) | Inspect current Gist content
+[11:32:01] Active: 1 | running | iPhone Scriptable Widget For Antigravity (90%) | Inspect current Gist cleanly
+[11:32:17] Active: 1 | running | iPhone Scriptable Widget For Antigravity (90%) | Print Gist cleanly
+[11:32:43] Active: 1 | running | iPhone Scriptable Widget For Antigravity (90%) | מנסח תשובה...
+[11:32:47] Active: 0 | done | iPhone Scriptable Widget For Antigravity (100%) | מנסח תשובה...
+[11:36:24] Active: 1 | running | Weissport App Bug Fixes (92%) | מנסח תשובה...
+[11:36:43] Active: 1 | running | Weissport App Bug Fixes (92%) | Check sync doc for hadar
+[11:37:03] Active: 2 | running | Weissport App Bug Fixes (92%) | read_file
+[11:37:13] Active: 2 | running | Weissport App Bug Fixes (92%) | Check useAuth in src
+[11:37:26] Active: 1 | running | Weissport App Bug Fixes (92%) | Check useAuth in src
+[11:37:30] Active: 1 | running | Weissport App Bug Fixes (92%) | Check firebase usage in src
+[11:37:41] Active: 1 | running | Weissport App Bug Fixes (92%) | read_file
+[11:38:03] Active: 1 | running | Weissport App Bug Fixes (92%) | Check push subscription sync
+[11:38:13] Active: 1 | running | Weissport App Bug Fixes (92%) | read_file
+[11:39:30] Active: 1 | running | Weissport App Bug Fixes (92%) | Check Firestore sync right now
+[11:39:41] Active: 1 | running | Weissport App Bug Fixes (92%) | read_file
+[11:40:06] Active: 1 | running | Weissport App Bug Fixes (92%) | Check toggleMatchReminder in match page
+[11:40:13] Active: 1 | running | Weissport App Bug Fixes (92%) | read_file
+[11:40:33] Active: 1 | running | Weissport App Bug Fixes (92%) | Check requiresIosPwa in src
+[11:40:40] Active: 1 | running | Weissport App Bug Fixes (92%) | read_file
+[11:41:02] Active: 1 | running | Weissport App Bug Fixes (92%) | read_file
+[11:41:16] Active: 1 | running | Weissport App Bug Fixes (92%) | Check git status
+[11:41:20] Active: 1 | running | Weissport App Bug Fixes (92%) | Git status in repo
+[11:41:24] Active: 1 | running | Weissport App Bug Fixes (92%) | read_file
+[11:41:31] Active: 1 | running | Weissport App Bug Fixes (92%) | Check recent git commits
+[11:41:35] Active: 1 | running | Weissport App Bug Fixes (92%) | List files in public/widgets
+[11:41:40] Active: 1 | running | Weissport App Bug Fixes (92%) | Search git history for title
+[11:42:11] Active: 0 | done | Weissport App Bug Fixes (100%) | מנסח תשובה...
+[11:53:30] Active: 1 | running | Weissport App Bug Fixes (92%) | מנסח תשובה...
+[11:54:25] Active: 1 | running | Weissport App Bug Fixes (92%) | מנסח תשובה...
+[11:55:12] Active: 2 | running | Weissport App Bug Fixes (92%) | מנסח תשובה...
+[11:55:16] Active: 2 | running | iPhone Scriptable Widget For Antigravity (90%) | מנסח תשובה...
+[11:55:21] Active: 2 | running | iPhone Scriptable Widget For Antigravity (90%) | Check listening ports of Antigravity processes
+[11:55:28] Active: 2 | running | iPhone Scriptable Widget For Antigravity (90%) | Search for URLs in .gemini/config
+[11:55:35] Active: 2 | running | iPhone Scriptable Widget For Antigravity (90%) | Check established connections
+[11:55:40] Active: 2 | running | Weissport App Bug Fixes (92%) | Fetch live widget API response
+[11:55:44] Active: 2 | running | Weissport App Bug Fixes (92%) | manage_task
+[11:55:48] Active: 2 | running | Weissport App Bug Fixes (92%) | manage_task
+[11:55:52] Active: 2 | running | Weissport App Bug Fixes (92%) | Run curl.exe for live widget API
+[11:56:12] Active: 2 | running | Weissport App Bug Fixes (92%) | Check 365scores image URL response headers
+[11:56:16] Active: 1 | running | Weissport App Bug Fixes (92%) | Check 365scores image URL response headers
+[11:56:35] Active: 1 | running | Weissport App Bug Fixes (92%) | Inspect commit 9d157e5
+[11:56:54] Active: 1 | running | Weissport App Bug Fixes (92%) | read_file
+[11:57:35] Active: 1 | running | Weissport App Bug Fixes (92%) | edit_file
+[11:57:39] Active: 1 | running | Weissport App Bug Fixes (92%) | Commit and push widget update
+[11:57:55] Active: 0 | done | Weissport App Bug Fixes (100%) | מנסח תשובה...
+[12:14:24] Active: 1 | running | Weissport App Bug Fixes (92%) | מנסח תשובה...
+[12:14:50] Active: 1 | running | Weissport App Bug Fixes (92%) | Test 365scores image with Scriptable User-Agent
+[12:15:06] Active: 1 | running | Weissport App Bug Fixes (92%) | Download test image
+[12:15:41] Active: 1 | running | Weissport App Bug Fixes (92%) | search_web
+[12:15:57] Active: 1 | running | Weissport App Bug Fixes (92%) | search_web
+[12:16:29] Active: 1 | running | Weissport App Bug Fixes (92%) | read_file
+[12:16:42] Active: 1 | running | Weissport App Bug Fixes (92%) | read_file
+[12:17:34] Active: 1 | running | Weissport App Bug Fixes (92%) | read_file
+[12:17:45] Active: 1 | running | Weissport App Bug Fixes (92%) | read_file
+[12:18:04] Active: 1 | running | Weissport App Bug Fixes (92%) | Test Node fetch and base64 conversion
+[12:18:45] Active: 1 | running | Weissport App Bug Fixes (92%) | read_file
+[12:19:16] Active: 1 | running | Weissport App Bug Fixes (92%) | edit_file
+[12:19:27] Active: 1 | running | Weissport App Bug Fixes (92%) | edit_file
+[12:19:46] Active: 1 | running | Weissport App Bug Fixes (92%) | edit_file
+[12:20:24] Active: 2 | running | iPhone Scriptable Widget For Antigravity (90%) | מנסח תשובה...
+[12:20:37] Active: 2 | running | Weissport App Bug Fixes (92%) | Run npm build
+[12:21:00] Active: 1 | running | Weissport App Bug Fixes (92%) | Run npm build
+[12:21:10] Active: 2 | running | iPhone Scriptable Widget For Antigravity (90%) | מנסח תשובה...
+[12:21:14] Active: 2 | running | Weissport App Bug Fixes (92%) | write_file
+[12:21:27] Active: 2 | running | Weissport App Bug Fixes (92%) | Commit and push base64 logo feature
+[12:21:53] Active: 2 | running | iPhone Scriptable Widget For Antigravity (90%) | Check if pythonw is running
+[12:22:03] Active: 2 | running | Weissport App Bug Fixes (92%) | Check live endpoint for logoBase64
+[12:22:22] Active: 2 | running | Weissport App Bug Fixes (92%) | Check Vercel deployment status
+[12:22:26] Active: 2 | running | Weissport App Bug Fixes (92%) | Check Vercel deployment status
+[12:22:46] Active: 2 | running | Weissport App Bug Fixes (92%) | manage_task
+[12:22:56] Active: 2 | running | Weissport App Bug Fixes (92%) | Curl live endpoint with cache-busting
+[12:23:00] Active: 2 | running | Weissport App Bug Fixes (92%) | Curl live endpoint with cache-busting
+[12:23:04] Active: 2 | running | Weissport App Bug Fixes (92%) | Curl live endpoint with cache-busting
+[12:23:17] Active: 2 | running | Weissport App Bug Fixes (92%) | Check widget_sync/hadar
+[12:23:42] Active: 2 | running | Weissport App Bug Fixes (92%) | Query all widget_sync docs
+[12:24:14] Active: 2 | running | Weissport App Bug Fixes (92%) | Query Firestore widget_sync docs
+[12:24:21] Active: 2 | running | Weissport App Bug Fixes (92%) | read_file
+[12:24:29] Active: 2 | running | Weissport App Bug Fixes (92%) | Query widget_sync collection in Firestore
+[12:24:39] Active: 2 | running | Weissport App Bug Fixes (92%) | Check env files
+[12:25:20] Active: 2 | running | Weissport App Bug Fixes (92%) | Curl live without user
+[12:25:57] Active: 2 | running | Weissport App Bug Fixes (92%) | Verify sports-widget.js deployed with getLogoImage
+[12:26:10] Active: 2 | running | Weissport App Bug Fixes (92%) | Check sync for user hadar
+[12:26:42] Active: 2 | running | Weissport App Bug Fixes (92%) | read_file
+[12:28:08] Active: 2 | running | Weissport App Bug Fixes (92%) | Find toggleReminder in notifications.ts
+[12:28:28] Active: 2 | running | Weissport App Bug Fixes (92%) | Find syncWidgetReminders references
+[12:28:53] Active: 2 | running | Weissport App Bug Fixes (92%) | read_file
+[12:29:19] Active: 2 | running | Weissport App Bug Fixes (92%) | Find matchId for HTA BKN
+[12:29:41] Active: 2 | running | Weissport App Bug Fixes (92%) | Find Hapoel Tel Aviv match id
+[12:30:04] Active: 2 | running | iPhone Scriptable Widget For Antigravity (90%) | Check Weissport last step
+[12:30:08] Active: 2 | running | iPhone Scriptable Widget For Antigravity (90%) | Verify direct API fetch content
+[12:30:18] Active: 2 | running | Weissport App Bug Fixes (92%) | edit_file
+[12:30:47] Active: 2 | running | Weissport App Bug Fixes (92%) | Restore bell matchIds to widget_sync
+[12:31:09] Active: 2 | running | iPhone Scriptable Widget For Antigravity (90%) | write_file
+🚀 Antigravity Agent Monitor v3 started...
+[12:31:30] Active: 2 | running | iPhone Scriptable Widget For Antigravity (88%) | Restart monitor v3
+[12:32:04] Active: 2 | running | iPhone Scriptable Widget For Antigravity (88%) | Check monitor v3 log
+[12:32:33] Active: 2 | running | Weissport App Bug Fixes (90%) | מנסח תשובה...
+[12:32:49] Active: 2 | running | Weissport App Bug Fixes (90%) | Check widget_sync for user hadar
+[12:32:57] Active: 2 | running | iPhone Scriptable Widget For Antigravity (88%) | write_file
+[12:33:07] Active: 2 | running | iPhone Scriptable Widget For Antigravity (88%) | Push anti-cache and state fixes to GitHub
+[12:33:20] Active: 2 | running | iPhone Scriptable Widget For Antigravity (88%) | Encode token in base64
+[12:33:29] Active: 2 | running | iPhone Scriptable Widget For Antigravity (88%) | edit_file
+[12:33:33] Active: 2 | running | iPhone Scriptable Widget For Antigravity (88%) | edit_file
