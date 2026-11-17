@@ -5,42 +5,38 @@
 /**
  * ⚡ Antigravity Agent - Minimalist iOS Task & Progress Widget
  * 
- * - תומך במסך נעילה (Lock Screen) ובמסך הבית (Small / Medium)
- * - מציג בזמן אמת: האם הסוכן עובד כרגע, מה שם המשימה, איזה צעד מתבצע, ומסמן ב-✓ כשהסתיים
- * - עיצוב Apple HIG מינימליסטי יוקרתי (OLED Black, טיפוגרפיה נקייה)
- * - לחיצה על הווידג'ט פותחת את Antigravity
+ * - מתעדכן בזמן אמת מול השרת על סטטוס הסוכן (עובד / סיים / ממתין)
+ * - עובד כווידג'ט חי במסך הבית (Medium / Small) ובמסך הנעילה (Lock Screen)
+ * - בהרצה ידנית בתוך Scriptable: מציג תפריט פעולות ובדיקה חיה
  */
 
-// כתובות ה-API (בודק קודם ב-Vercel, ונופל אוטומטית ל-GitHub Gist לזמינות מיידית)
+// מקורות נתונים בענן (ענן חי ישיר עם ביטול מטמון לקבלת נתונים תוך שניות)
+const GIST_RAW_URL = "https://gist.githubusercontent.com/hadarai9087-hub/f307290d03418549eeee78997070fe96/raw/status.json";
 const VERCEL_API_URL = "https://antigravity-agent-widget.vercel.app/api/status";
-const GIST_API_URL = "https://api.github.com/gists/f307290d03418549eeee78997070fe96";
 
-// כתובת לפתיחת Antigravity בלחיצה על הווידג'ט
-const APP_URL = "https://antigravity-agent-widget.vercel.app";
+// קישור לפתיחה בלחיצה על הווידג'ט
+const APP_URL = "https://github.com/hadarai9087-hub/antigravity-agent-widget";
 
 async function fetchStatus() {
-  // 1. ניסיון קריאה מ-Vercel
+  // 1. קריאה ישירה מהענן החי (ללא חסימות או עיכובי מטמון)
+  try {
+    const freshUrl = `${GIST_RAW_URL}?t=${Date.now()}`;
+    const req = new Request(freshUrl);
+    req.timeoutInterval = 4;
+    req.headers = { "Cache-Control": "no-cache", "User-Agent": "AntigravityWidget/1.0" };
+    const res = await req.loadJSON();
+    if (res && res.status) return res;
+  } catch (e) {
+    console.warn("Gist raw fetch failed:", e);
+  }
+
+  // 2. פולבק ל-Vercel API
   try {
     const req = new Request(VERCEL_API_URL);
     req.timeoutInterval = 4;
     const res = await req.loadJSON();
     if (res && res.status) return res;
-  } catch (e) {
-    // ממשיך לפולבק
-  }
-
-  // 2. פולבק מיידי ל-GitHub Gist (עובד מיידית 100%)
-  try {
-    const req = new Request(GIST_API_URL);
-    req.timeoutInterval = 5;
-    const res = await req.loadJSON();
-    const content = res?.files?.["status.json"]?.content;
-    if (content) {
-      return JSON.parse(content);
-    }
-  } catch (e) {
-    console.warn("Fetch fallback failed:", e);
-  }
+  } catch (e) {}
 
   return {
     status: "idle",
@@ -51,13 +47,14 @@ async function fetchStatus() {
   };
 }
 
-async function createWidget() {
+async function createWidget(family) {
   const data = await fetchStatus();
   const widget = new ListWidget();
+  const targetFamily = family || config.widgetFamily || "medium";
   
-  const isLockScreen = config.widgetFamily === "accessoryRectangular" || 
-                       config.widgetFamily === "accessoryInline" || 
-                       config.widgetFamily === "accessoryCircular";
+  const isLockScreen = targetFamily === "accessoryRectangular" || 
+                       targetFamily === "accessoryInline" || 
+                       targetFamily === "accessoryCircular";
 
   const isRunning = data.status === "running";
   const isDone = data.status === "done";
@@ -65,17 +62,16 @@ async function createWidget() {
   // לחיצה על הווידג'ט
   widget.url = APP_URL;
 
-  // הגדרת רקע וריווחים לפי סוג הווידג'ט
   if (isLockScreen) {
     widget.backgroundColor = new Color("#000000", 0);
     widget.setPadding(0, 2, 0, 2);
     renderLockScreen(widget, data, isRunning, isDone);
-  } else if (config.widgetFamily === "small") {
+  } else if (targetFamily === "small") {
     widget.backgroundColor = new Color("#000000");
     widget.setPadding(14, 14, 14, 14);
     renderSmall(widget, data, isRunning, isDone);
   } else {
-    // Medium (ברירת מחדל מומלצת)
+    // Medium (ברירת מחדל)
     widget.backgroundColor = new Color("#000000");
     widget.setPadding(16, 18, 16, 18);
     renderMedium(widget, data, isRunning, isDone);
@@ -87,15 +83,13 @@ async function createWidget() {
 }
 
 // -------------------------------------------------------------
-// 1. מסך הבית - מלבן רחב (Medium Widget - תצוגה עשירה ונקייה)
+// 1. מסך הבית - מלבן רחב (Medium Widget)
 // -------------------------------------------------------------
 function renderMedium(widget, data, isRunning, isDone) {
-  // שורה עליונה: סטטוס + מועד עדכון
   const topRow = widget.addStack();
   topRow.layoutHorizontally();
   topRow.centerAlignContent();
 
-  // נורית סטטוס
   const statusBadge = topRow.addStack();
   statusBadge.layoutHorizontally();
   statusBadge.centerAlignContent();
@@ -128,7 +122,6 @@ function renderMedium(widget, data, isRunning, isDone) {
 
   topRow.addSpacer();
 
-  // צעד נוכחי / מונה
   if (data.stepCount > 0) {
     const stepLabel = topRow.addText(`צעד ${data.stepCount}`);
     stepLabel.font = Font.mediumSystemFont(11);
@@ -137,7 +130,6 @@ function renderMedium(widget, data, isRunning, isDone) {
 
   widget.addSpacer(10);
 
-  // כותרת המשימה
   const title = widget.addText(data.taskTitle || "Antigravity Task");
   title.font = Font.boldSystemFont(16);
   title.textColor = new Color("#FFFFFF");
@@ -145,7 +137,6 @@ function renderMedium(widget, data, isRunning, isDone) {
 
   widget.addSpacer(4);
 
-  // פעולה נוכחית או פירוט
   const actionText = isRunning 
     ? (cleanActionName(data.currentAction) || "מבצע פעולות...") 
     : (isDone ? "כל המשימות הסתיימו בהצלחה" : "הסוכן זמין בשרת");
@@ -157,13 +148,11 @@ function renderMedium(widget, data, isRunning, isDone) {
 
   widget.addSpacer(10);
 
-  // שורת תחתית: פס התקדמות מינימליסטי ושעת עדכון
   const bottomRow = widget.addStack();
   bottomRow.layoutHorizontally();
   bottomRow.centerAlignContent();
 
-  const timeStr = formatRelativeTime(data.updatedAt);
-  const timeText = bottomRow.addText(timeStr);
+  const timeText = bottomRow.addText(formatRelativeTime(data.updatedAt));
   timeText.font = Font.systemFont(10);
   timeText.textColor = new Color("#52525B");
 
@@ -175,10 +164,9 @@ function renderMedium(widget, data, isRunning, isDone) {
 }
 
 // -------------------------------------------------------------
-// 2. מסך הבית - ריבוע קטן (Small Widget - קומפקטי)
+// 2. מסך הבית - ריבוע קטן (Small Widget)
 // -------------------------------------------------------------
 function renderSmall(widget, data, isRunning, isDone) {
-  // אינדיקטור עליון
   const topRow = widget.addStack();
   topRow.layoutHorizontally();
   topRow.centerAlignContent();
@@ -195,7 +183,6 @@ function renderSmall(widget, data, isRunning, isDone) {
 
   widget.addSpacer();
 
-  // כותרת משימה
   const title = widget.addText(data.taskTitle || "Antigravity");
   title.font = Font.boldSystemFont(14);
   title.textColor = new Color("#FFFFFF");
@@ -203,7 +190,6 @@ function renderSmall(widget, data, isRunning, isDone) {
 
   widget.addSpacer(4);
 
-  // פעולה נוכחית
   const actionText = isRunning ? cleanActionName(data.currentAction) : (isDone ? "הסתיים" : "פנוי");
   const sub = widget.addText(actionText);
   sub.font = Font.systemFont(11);
@@ -212,14 +198,13 @@ function renderSmall(widget, data, isRunning, isDone) {
 
   widget.addSpacer();
 
-  // זמן בתחתית
   const timeText = widget.addText(formatRelativeTime(data.updatedAt));
   timeText.font = Font.systemFont(9);
   timeText.textColor = new Color("#52525B");
 }
 
 // -------------------------------------------------------------
-// 3. מסך נעילה (Lock Screen Rectangular Accessory)
+// 3. מסך נעילה (Lock Screen Rectangular)
 // -------------------------------------------------------------
 function renderLockScreen(widget, data, isRunning, isDone) {
   const stack = widget.addStack();
@@ -248,13 +233,11 @@ function renderLockScreen(widget, data, isRunning, isDone) {
   }
 }
 
-// ניקוי טקסט פעולה מגרשיים
 function cleanActionName(str) {
   if (!str) return "";
   return String(str).replace(/^["']|["']$/g, "").trim();
 }
 
-// חישוב זמן יחסי ידידותי
 function formatRelativeTime(dateStr) {
   if (!dateStr) return "";
   try {
@@ -267,13 +250,38 @@ function formatRelativeTime(dateStr) {
   }
 }
 
-// הפעלת הווידג'ט
+// =============================================================
+// מנגנון הרצה: ווידג'ט חי במסך הבית מול הרצה ידנית ב-Scriptable
+// =============================================================
 if (config.runsInWidget) {
+  // מצב 1: הווידג'ט רץ חי על מסך הבית / מסך הנעילה של האייפון
   const widget = await createWidget();
   Script.setWidget(widget);
 } else {
-  // הרצה ידנית בתוך האפליקציה לבדיקה
-  const widget = await createWidget();
-  await widget.presentMedium();
+  // מצב 2: הרצה ידנית (Run Script) מתוך אפליקציית Scriptable
+  // במקום להציג סתם "preview" חסר משמעות, מציג דיאלוג אינטראקטיבי
+  const status = await fetchStatus();
+  const alert = new Alert();
+  alert.title = "⚡ Antigravity Agent Status";
+  
+  const stateHeb = status.status === "running" ? "🟢 פועל כעת" : (status.status === "done" ? "✨ הושלם בהצלחה" : "💤 ממתין לפקודה");
+  alert.message = `משימה: ${status.taskTitle}\nסטטוס: ${stateHeb}\nצעד: ${status.stepCount} | ${cleanActionName(status.currentAction)}\nעודכן: ${formatRelativeTime(status.updatedAt)}`;
+  
+  alert.addAction("📱 הצג ווידג'ט (Medium)");
+  alert.addAction("⏹️ הצג ווידג'ט (Small)");
+  alert.addAction("🔒 הצג מסך נעילה (Lock Screen)");
+  alert.addCancelAction("סגור");
+
+  const choice = await alert.presentAlert();
+  if (choice === 0) {
+    const w = await createWidget("medium");
+    await w.presentMedium();
+  } else if (choice === 1) {
+    const w = await createWidget("small");
+    await w.presentSmall();
+  } else if (choice === 2) {
+    const w = await createWidget("accessoryRectangular");
+    await w.presentAccessoryRectangular();
+  }
 }
 Script.complete();
